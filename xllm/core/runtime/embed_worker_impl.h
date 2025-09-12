@@ -45,7 +45,8 @@ class EmbedWorkerImpl : public WorkerImpl {
                   const ModelArgs& args,
                   const QuantArgs& quant_args) override;
 
-  std::optional<ForwardOutput> step(const ForwardInput& inputs) override;
+  std::optional<ForwardOutput> step(
+      const BatchedForwardInputs& inputs) override;
 };
 
 }  // namespace xllm

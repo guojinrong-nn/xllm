@@ -186,6 +186,10 @@ message ForwardInput {
   repeated CacheBlockInfo copy_in_blocks = 29;
 }
 
+ message BatchedForwardInputs {
+   repeated ForwardInput inputs = 1;
+ }
+
 message Embeddings {
   repeated float vals = 1;
 }
@@ -230,7 +234,7 @@ service DistributeWorker {
   rpc GetCacheInfo(Empty) returns (CacheInfo) {}
   rpc LinkCluster(ClusterInfo) returns (Status) {}
   rpc UnlinkCluster(ClusterInfo) returns (Status) {}
-  rpc ExecuteModel (ForwardInput) returns (ForwardOutput);
+  rpc ExecuteModel (BatchedForwardInputs) returns (ForwardOutput);
   rpc GetLastStepResult (Empty) returns (ForwardOutput);
   rpc GetActiveActivationMemory (Empty) returns (ActivationMemory);
   rpc LoadKVCacheFromStore(CacheBlockInfos) returns (StoreResponse) {}

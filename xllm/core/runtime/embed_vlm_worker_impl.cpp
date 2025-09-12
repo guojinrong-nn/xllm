@@ -74,7 +74,7 @@ bool EmbedVLMWorkerImpl::init_model(torch::ScalarType dtype,
 }
 
 std::optional<ForwardOutput> EmbedVLMWorkerImpl::step(
-    const ForwardInput& inputs) {
+    const BatchedForwardInputs& inputs) {
   torch::DeviceGuard device_guard(device_);
 #if defined(USE_NPU)
   torch::npu::synchronize();
@@ -84,11 +84,12 @@ std::optional<ForwardOutput> EmbedVLMWorkerImpl::step(
 
   Timer timer;
 
+  // TODO guojinrong, to adapt multi stream parallel later
   // all tensors should be on the same device as model
-  auto flatten_tokens = inputs.token_ids.to(device_);
-  auto flatten_positions = inputs.positions.to(device_);
-  auto params = inputs.input_params.to(device_);
-  auto sampling_params = inputs.sampling_params.to(device_, dtype_);
+  auto flatten_tokens = inputs.inputs[0].token_ids.to(device_);
+  auto flatten_positions = inputs.inputs[0].positions.to(device_);
+  auto params = inputs.inputs[0].input_params.to(device_);
+  auto sampling_params = inputs.inputs[0].sampling_params.to(device_, dtype_);
 
   // call model executor forward to get hidden states
   auto hidden_states = model_executor_->forward(
