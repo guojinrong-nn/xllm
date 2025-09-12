@@ -103,7 +103,7 @@ folly::SemiFuture<std::optional<ForwardOutput>> WorkerClient::step_async(
     const ForwardInput& inputs) {
   // todo gjr adapt
   BatchedForwardInputs batched_fwd_inputs;
-  batched_fwd_inputs.inputs = {std::move(inputs)};
+  batched_fwd_inputs.micro_inputs = {std::move(inputs)};
   return worker_->step_async(batched_fwd_inputs);
 }
 

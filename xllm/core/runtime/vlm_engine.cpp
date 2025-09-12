@@ -277,7 +277,7 @@ ForwardOutput VLMEngine::step(std::vector<Batch>& batches) {
   futures.reserve(workers_.size());
   for (auto& worker : workers_) {
     BatchedForwardInputs batched_fwd_inputs;
-    batched_fwd_inputs.inputs = {std::move(forward_inputs)};
+    batched_fwd_inputs.micro_inputs = {std::move(forward_inputs)};
     futures.emplace_back(worker->step_async(batched_fwd_inputs));
   }
   // wait for the all future to complete

@@ -171,11 +171,11 @@ std::optional<ForwardOutput> SpeculativeWorkerImpl::step(
     const BatchedForwardInputs& inputs) {
   // all micro batches in multi stream parallel share the same
   // prefill/decode stage, use inputs[0] here
-  if (inputs.inputs[0].token_ids.numel() == 0) {
+  if (inputs.micro_inputs[0].token_ids.numel() == 0) {
     return step_empty(inputs);
   }
 
-  if (inputs.inputs[0].input_params.global_empty_kv_cache == true) {
+  if (inputs.micro_inputs[0].input_params.global_empty_kv_cache == true) {
     return step_prefill(inputs);
   } else {
     return step_decode(inputs);
@@ -184,7 +184,7 @@ std::optional<ForwardOutput> SpeculativeWorkerImpl::step(
 
 std::optional<ForwardOutput> SpeculativeWorkerImpl::step_empty(
     const BatchedForwardInputs& inputs) {
-  if (inputs.inputs[0].input_params.global_empty_kv_cache == true) {
+  if (inputs.micro_inputs[0].input_params.global_empty_kv_cache == true) {
     auto output = impl_->step(inputs);
     auto draft_output = draft_impl_->step(inputs);
     return output;
@@ -198,8 +198,9 @@ std::optional<ForwardOutput> SpeculativeWorkerImpl::step_empty(
     // for (auto& it : new_inputs.input_params.dp_global_token_nums) {
     // ForwardInput new_inputs = inputs;
     // for (auto& it : new_inputs.input_params.dp_global_token_nums) {
-    for (auto i = 0; i < new_inputs.inputs.size(); ++i) {
-      for (auto& it : new_inputs.inputs[i].input_params.dp_global_token_nums) {
+    for (auto i = 0; i < new_inputs.micro_inputs.size(); ++i) {
+      for (auto& it :
+           new_inputs.micro_inputs[i].input_params.dp_global_token_nums) {
         it *= options_.num_speculative_tokens() + 1;
       }
     }
@@ -230,15 +231,15 @@ std::optional<ForwardOutput> SpeculativeWorkerImpl::step_prefill(
   auto next_tokens = safe_to(output.sample_output.next_tokens, torch::kInt);
   auto start_idx = 0;
   auto token_start_idx = 0;
-  for (auto i = 0; i < inputs.inputs.size(); ++i) {
-    auto offset = inputs.inputs[i].input_params.num_sequences;
-    auto token_offset = prefill_inputs.inputs[i].token_ids.size(0);
+  for (auto i = 0; i < inputs.micro_inputs.size(); ++i) {
+    auto offset = inputs.micro_inputs[i].input_params.num_sequences;
+    auto token_offset = prefill_inputs.micro_inputs[i].token_ids.size(0);
     if (token_offset > 0) {
-      prefill_inputs.inputs[i].input_params.mm_data = MMData(
+      prefill_inputs.micro_inputs[i].input_params.mm_data = MMData(
           MMType::EMBEDDING,
           {{"embedding", embeddings.narrow(0, token_start_idx, token_offset)}});
     }
-    auto& token_ids = prefill_inputs.inputs[i].token_ids;
+    auto& token_ids = prefill_inputs.micro_inputs[i].token_ids;
     auto mask = (token_ids == -1);
     token_ids.masked_scatter_(mask, next_tokens.narrow(0, start_idx, offset));
     start_idx += offset;
@@ -256,12 +257,13 @@ std::optional<ForwardOutput> SpeculativeWorkerImpl::step_prefill(
   COUNTER_ADD(speculative_execution_latency_seconds_draft,
               timer.elapsed_seconds());
 
-  auto concated_embedding_ids = inputs.inputs[0].input_params.embedding_ids;
-  for (auto i = 1; i < inputs.inputs.size(); ++i) {
+  auto concated_embedding_ids =
+      inputs.micro_inputs[0].input_params.embedding_ids;
+  for (auto i = 1; i < inputs.micro_inputs.size(); ++i) {
     concated_embedding_ids.insert(
         concated_embedding_ids.end(),
-        inputs.inputs[i].input_params.embedding_ids.begin(),
-        inputs.inputs[i].input_params.embedding_ids.end());
+        inputs.micro_inputs[i].input_params.embedding_ids.begin(),
+        inputs.micro_inputs[i].input_params.embedding_ids.end());
   }
 
   embeddings = embeddings.index_select(
@@ -277,12 +279,12 @@ std::optional<ForwardOutput> SpeculativeWorkerImpl::step_prefill(
   output.sample_output.embeddings = torch::Tensor();
 
 #if defined(USE_NPU)
-  for (auto i = 0; i < inputs.inputs.size(); ++i) {
+  for (auto i = 0; i < inputs.micro_inputs.size(); ++i) {
     if (options_.instance_role() == InstanceRole::PREFILL &&
         options_.kv_cache_transfer_mode() == "PUSH" &&
-        !inputs.inputs[i].transfer_kv_infos.empty()) {
+        !inputs.micro_inputs[i].transfer_kv_infos.empty()) {
       auto future = kv_cache_transfer_->push_kv_blocks_async(
-          inputs.inputs[i].transfer_kv_infos,
+          inputs.micro_inputs[i].transfer_kv_infos,
           context_.get_parallel_args(),
           nullptr,
           true);
@@ -296,9 +298,9 @@ std::optional<ForwardOutput> SpeculativeWorkerImpl::step_prefill(
 void SpeculativeWorkerImpl::prepare_prefill_inputs(
     const BatchedForwardInputs& inputs,
     BatchedForwardInputs& prefill_inputs) {
-  prefill_inputs.inputs.reserve(inputs.inputs.size());
-  for (auto i = 0; i < inputs.inputs.size(); ++i) {
-    auto& input = inputs.inputs[i];
+  prefill_inputs.micro_inputs.reserve(inputs.micro_inputs.size());
+  for (auto i = 0; i < inputs.micro_inputs.size(); ++i) {
+    auto& input = inputs.micro_inputs[i];
     ForwardInput prefill_input;
     prefill_input = input.to(device_, dtype_);
     auto& input_params = prefill_input.input_params;
@@ -323,7 +325,7 @@ void SpeculativeWorkerImpl::prepare_prefill_inputs(
     }
     prefill_input.token_ids =
         torch::tensor(new_token_ids, prefill_input.positions.options());
-    prefill_inputs.inputs.push_back(std::move(prefill_input));
+    prefill_inputs.micro_inputs.push_back(std::move(prefill_input));
   }
   prefill_inputs.concated_sampling_params = inputs.concated_sampling_params;
 }
@@ -334,9 +336,9 @@ std::optional<ForwardOutput> SpeculativeWorkerImpl::step_decode(
   // More work need to support n-gram and native speculative decoding.
   // ForwardInput draft_inputs = inputs;
   BatchedForwardInputs draft_inputs = inputs;
-  for (auto i = 0; i < draft_inputs.inputs.size(); ++i) {
-    auto& input = inputs.inputs[i];
-    auto& draft_input = draft_inputs.inputs[i];
+  for (auto i = 0; i < draft_inputs.micro_inputs.size(); ++i) {
+    auto& input = inputs.micro_inputs[i];
+    auto& draft_input = draft_inputs.micro_inputs[i];
     // get embedding cache
 #if defined(USE_NPU)
     if (kv_cache_transfer_) {
@@ -374,8 +376,8 @@ std::optional<ForwardOutput> SpeculativeWorkerImpl::step_decode(
       //            {{"embedding", last_output.embeddings.to(device_)}});
       auto start_idx = 0;
       auto token_start_idx = 0;
-      for (auto i = 0; i < draft_inputs.inputs.size(); ++i) {
-        auto& draft_input = draft_inputs.inputs[i];
+      for (auto i = 0; i < draft_inputs.micro_inputs.size(); ++i) {
+        auto& draft_input = draft_inputs.micro_inputs[i];
         auto offset = draft_input.input_params.num_sequences;
         auto token_offset = draft_input.token_ids.size(0);
         draft_input.token_ids = safe_to(
@@ -403,9 +405,9 @@ std::optional<ForwardOutput> SpeculativeWorkerImpl::step_decode(
         safe_to(draft_output.sample_output.next_tokens, torch::kInt);
     // token_ids.masked_scatter_(mask, next_tokens);
     int32_t start_idx = 0;
-    for (auto i = 0; i < validate_inputs.inputs.size(); ++i) {
-      int32_t offset = draft_inputs.inputs[i].input_params.num_sequences;
-      auto& validate_input = validate_inputs.inputs[i];
+    for (auto i = 0; i < validate_inputs.micro_inputs.size(); ++i) {
+      int32_t offset = draft_inputs.micro_inputs[i].input_params.num_sequences;
+      auto& validate_input = validate_inputs.micro_inputs[i];
       auto& token_ids = validate_input.token_ids;
       auto mask = (token_ids == -1 * (i + 1));
       token_ids.masked_scatter_(mask, next_tokens.narrow(0, start_idx, offset));
@@ -427,8 +429,8 @@ std::optional<ForwardOutput> SpeculativeWorkerImpl::step_decode(
   COUNTER_ADD(speculative_execution_latency_seconds_validation,
               timer.elapsed_seconds());
 
-  for (auto i = 1; i < inputs.inputs.size(); ++i) {
-    auto& input = inputs.inputs[i];
+  for (auto i = 1; i < inputs.micro_inputs.size(); ++i) {
+    auto& input = inputs.micro_inputs[i];
     // write the right cache and clear embeddings
     embedding_allocator_->write_validate(input.input_params.embedding_ids,
                                          val_output.next_tokens.to(torch::kCPU),
@@ -456,9 +458,9 @@ void SpeculativeWorkerImpl::prepare_draft_inputs(
     const int64_t offset,
     const torch::Device device) {
   // prepare input for MTP in decoding phase (Like Eagle).
-  draft_inputs.inputs.reserve(inputs.inputs.size());
-  for (auto i = 0; i < inputs.inputs.size(); ++i) {
-    auto& input = inputs.inputs[i];
+  draft_inputs.micro_inputs.reserve(inputs.micro_inputs.size());
+  for (auto i = 0; i < inputs.micro_inputs.size(); ++i) {
+    auto& input = inputs.micro_inputs[i];
     ForwardInput draft_input = input.to(device, dtype_);
 
     auto& input_params = draft_input.input_params;
@@ -502,7 +504,7 @@ void SpeculativeWorkerImpl::prepare_draft_inputs(
     input_params.kv_seq_lens = torch::tensor(kv_seq_lens_vec, int_options);
     input_params.new_cache_slots =
         torch::tensor(new_token_slot_ids, int_options);
-    draft_inputs.inputs.push_back(std::move(draft_input));
+    draft_inputs.micro_inputs.push_back(std::move(draft_input));
   }
   draft_inputs.concated_sampling_params = inputs.concated_sampling_params;
 }
@@ -511,9 +513,9 @@ void SpeculativeWorkerImpl::prepare_validate_inputs(
     const BatchedForwardInputs& inputs,
     BatchedForwardInputs& validate_inputs,
     bool enable_schedule_overlap) {
-  validate_inputs.inputs.reserve(inputs.inputs.size());
-  for (auto i = 0; i < inputs.inputs.size(); ++i) {
-    auto& input = inputs.inputs[i];
+  validate_inputs.micro_inputs.reserve(inputs.micro_inputs.size());
+  for (auto i = 0; i < inputs.micro_inputs.size(); ++i) {
+    auto& input = inputs.micro_inputs[i];
 
     ForwardInput validate_input = input.to(device_, dtype_);
     auto& input_params = validate_input.input_params;
@@ -625,14 +627,14 @@ void SpeculativeWorkerImpl::prepare_validate_inputs(
     // update the sampling_params
     update_sampling_params(
         validate_input.sampling_params, num_val_tokens, total_num_val_tokens);
-    validate_inputs.inputs.push_back(std::move(validate_input));
+    validate_inputs.micro_inputs.push_back(std::move(validate_input));
   }
 
   validate_inputs.concated_sampling_params =
-      validate_inputs.inputs[0].sampling_params;
-  for (auto i = 1; i < validate_inputs.inputs.size(); ++i) {
+      validate_inputs.micro_inputs[0].sampling_params;
+  for (auto i = 1; i < validate_inputs.micro_inputs.size(); ++i) {
     validate_inputs.concated_sampling_params.concat(
-        validate_inputs.inputs[i].sampling_params);
+        validate_inputs.micro_inputs[i].sampling_params);
   }
 }
 
@@ -830,7 +832,7 @@ void SpeculativeWorkerImpl::update_sampling_params(
 void SpeculativeWorkerImpl::prepare_work_before_execute(
     const BatchedForwardInputs& inputs,
     BatchedForwardInputs& processed_inputs) {
-  if (inputs.inputs[0].input_params.empty_kv_cache) {
+  if (inputs.micro_inputs[0].input_params.empty_kv_cache) {
     WorkerImpl::prepare_work_before_execute(inputs, processed_inputs);
   } else {
     if (enable_schedule_overlap()) {

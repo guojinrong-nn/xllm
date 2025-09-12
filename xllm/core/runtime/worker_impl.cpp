@@ -367,9 +367,9 @@ void WorkerImpl::prepare_work_before_execute(
   c10::StreamGuard streamGuard(npu_stream_helper_->H2D_memcpy_stream.unwrap());
   // processed_inputs = inputs.to(device_, dtype_);
 
-  for (auto i = 0; i < inputs.inputs.size(); ++i) {
+  for (auto i = 0; i < inputs.micro_inputs.size(); ++i) {
     ForwardInput fwd_inputs_on_device;
-    fwd_inputs_on_device = inputs.inputs[i].to(device_, dtype_);
+    fwd_inputs_on_device = inputs.micro_inputs[i].to(device_, dtype_);
     auto& input_params = fwd_inputs_on_device.input_params;
     if (input_params.copy_out_blocks.size() > 0 ||
         input_params.copy_in_blocks.size() > 0) {
@@ -395,7 +395,7 @@ void WorkerImpl::prepare_work_before_execute(
       }
 
       offload_kv_blocks_to_store_async(
-          inputs.inputs[i].input_params.copy_out_blocks);
+          inputs.micro_inputs[i].input_params.copy_out_blocks);
     }
 
     if (!context_.get_parallel_args().mapping_data().empty()) {
@@ -421,7 +421,7 @@ void WorkerImpl::prepare_work_before_execute(
         fwd_inputs_on_device.input_params.expert_load_data = expert_load_data_;
       }
     }
-    processed_inputs.inputs.push_back(std::move(fwd_inputs_on_device));
+    processed_inputs.micro_inputs.push_back(std::move(fwd_inputs_on_device));
   }
   processed_inputs.concated_sampling_params =
       inputs.concated_sampling_params.to(device_, dtype_);
@@ -472,7 +472,7 @@ folly::SemiFuture<bool> WorkerImpl::copy_out_blocks_async(
 folly::SemiFuture<std::optional<ForwardOutput>> WorkerImpl::step_async(
     const BatchedForwardInputs& inputs) {
   BatchedForwardInputs batched_inputs_on_device;
-  batched_inputs_on_device.inputs.reserve(inputs.inputs.size());
+  batched_inputs_on_device.micro_inputs.reserve(inputs.micro_inputs.size());
 
   prepare_work_before_execute(inputs, batched_inputs_on_device);
   // ForwardInput forward_inputs_on_device;
@@ -485,11 +485,12 @@ folly::SemiFuture<std::optional<ForwardOutput>> WorkerImpl::step_async(
                         promise = std::move(promise)]() mutable {
     // run the model on the given input in working thread
     std::vector<folly::SemiFuture<bool>> copy_futures;
-    for (auto input : inputs.inputs) {
+    for (auto input : inputs.micro_inputs) {
       copy_futures.push_back(
           std::move(copy_out_blocks_async(input.input_params)));
     }
-    // auto copy_future = copy_out_blocks_async(inputs.inputs[i].input_params);
+    // auto copy_future =
+    // copy_out_blocks_async(inputs.micro_inputs[i].input_params);
     if (!enable_schedule_overlap()) {
       const auto output = this->step(inputs);
       std::for_each(copy_futures.begin(),
@@ -500,11 +501,12 @@ folly::SemiFuture<std::optional<ForwardOutput>> WorkerImpl::step_async(
       // std::move(copy_future).get();
       promise.setValue(output);
     } else {
-      for (auto i = 0; i < inputs.inputs.size(); ++i) {
+      for (auto i = 0; i < inputs.micro_inputs.size(); ++i) {
         if (last_step_output_valid_ &&
-            !inputs.inputs[i].input_params.empty_kv_cache) {
+            !inputs.micro_inputs[i].input_params.empty_kv_cache) {
           // replace step i model input with true output of step i-1
-          inputs.inputs[i] = update_input_by_last_step_output(inputs.inputs[i]);
+          inputs.micro_inputs[i] =
+              update_input_by_last_step_output(inputs.micro_inputs[i]);
         }
       }
       const auto output = this->step(inputs);

@@ -104,17 +104,17 @@ std::optional<ForwardOutput> LLMWorkerImpl::step(
 
   std::vector<folly::SemiFuture<bool>> futures;
 
-  for (auto i = 0; i < inputs.inputs.size(); ++i) {
+  for (auto i = 0; i < inputs.micro_inputs.size(); ++i) {
     flatten_tokens_micro_batches.push_back(
-        std::move(inputs.inputs[i].token_ids));
+        std::move(inputs.micro_inputs[i].token_ids));
     flatten_positions_micro_batches.push_back(
-        std::move(inputs.inputs[i].positions));
+        std::move(inputs.micro_inputs[i].positions));
     input_params_micro_batches.push_back(
-        std::move(inputs.inputs[i].input_params));
+        std::move(inputs.micro_inputs[i].input_params));
 
     if (options_.instance_role() == InstanceRole::PREFILL &&
         options_.kv_cache_transfer_mode() == "PUSH" &&
-        !inputs.inputs[i].transfer_kv_infos.empty()) {
+        !inputs.micro_inputs[i].transfer_kv_infos.empty()) {
 #if defined(USE_NPU)
       std::shared_ptr<NPULayerSynchronizerImpl> layer_synchronizer =
           std::make_shared<NPULayerSynchronizerImpl>(
@@ -123,7 +123,7 @@ std::optional<ForwardOutput> LLMWorkerImpl::step(
           ->layer_synchronizer = layer_synchronizer;
 
       futures.emplace_back(kv_cache_transfer_->push_kv_blocks_async(
-          inputs.inputs[i].transfer_kv_infos,
+          inputs.micro_inputs[i].transfer_kv_infos,
           context_.get_parallel_args(),
           layer_synchronizer,
           is_spec_draft_));
@@ -131,7 +131,7 @@ std::optional<ForwardOutput> LLMWorkerImpl::step(
     }
 
     if (FLAGS_enable_eplb) {
-      eplb_executor_->eplb_execute(inputs.inputs[i].eplb_info);
+      eplb_executor_->eplb_execute(inputs.micro_inputs[i].eplb_info);
     }
   }
 
@@ -173,10 +173,10 @@ std::optional<ForwardOutput> LLMWorkerImpl::step(
 #endif
     // in p-d disaggregation scene, all micro batches should be in same
     // prefill/decode stage, so, to judge transfer_kv_infos.empty,
-    // just use micro inputs.inputs[0] here
+    // just use micro inputs.micro_inputs[0] here
     if (options_.instance_role() == InstanceRole::PREFILL &&
         options_.kv_cache_transfer_mode() == "PUSH" &&
-        !inputs.inputs[0].transfer_kv_infos.empty()) {
+        !inputs.micro_inputs[0].transfer_kv_infos.empty()) {
       auto results =
           folly::collectAll(futures).within(std::chrono::seconds(60)).get();
       for (const auto& result : results) {
@@ -230,7 +230,7 @@ std::optional<ForwardOutput> LLMWorkerImpl::step(
 
   if (options_.instance_role() == InstanceRole::PREFILL &&
       options_.kv_cache_transfer_mode() == "PUSH" &&
-      !inputs.inputs[0].transfer_kv_infos.empty()) {
+      !inputs.micro_inputs[0].transfer_kv_infos.empty()) {
     auto results =
         folly::collectAll(futures).within(std::chrono::seconds(60)).get();
     for (const auto& result : results) {

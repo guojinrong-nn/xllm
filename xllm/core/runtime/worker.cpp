@@ -103,7 +103,7 @@ ForwardInput Worker::prepare_inputs(Batch& batch) {
 
 std::optional<ForwardOutput> Worker::step(const ForwardInput& inputs) {
   BatchedForwardInputs batched_inputs;
-  batched_inputs.inputs = {std::move(inputs)};
+  batched_inputs.micro_inputs = {std::move(inputs)};
   return impl_->step(batched_inputs);
 }
 

@@ -86,10 +86,11 @@ std::optional<ForwardOutput> EmbedVLMWorkerImpl::step(
 
   // TODO guojinrong, to adapt multi stream parallel later
   // all tensors should be on the same device as model
-  auto flatten_tokens = inputs.inputs[0].token_ids.to(device_);
-  auto flatten_positions = inputs.inputs[0].positions.to(device_);
-  auto params = inputs.inputs[0].input_params.to(device_);
-  auto sampling_params = inputs.inputs[0].sampling_params.to(device_, dtype_);
+  auto flatten_tokens = inputs.micro_inputs[0].token_ids.to(device_);
+  auto flatten_positions = inputs.micro_inputs[0].positions.to(device_);
+  auto params = inputs.micro_inputs[0].input_params.to(device_);
+  auto sampling_params =
+      inputs.micro_inputs[0].sampling_params.to(device_, dtype_);
 
   // call model executor forward to get hidden states
   auto hidden_states = model_executor_->forward(

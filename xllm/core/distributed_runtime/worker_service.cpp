@@ -348,19 +348,19 @@ void WorkerService::ExecuteModel(
 
     auto micro_batches_num = pb_batched_fwd_inputs->inputs().size();
     BatchedForwardInputs batched_fwd_inputs;
-    batched_fwd_inputs.inputs.reserve(micro_batches_num);
+    batched_fwd_inputs.micro_inputs.reserve(micro_batches_num);
     for (auto i = 0; i < micro_batches_num; ++i) {
       ForwardInput forward_input;
       proto_to_forward_input(&(pb_batched_fwd_inputs->inputs()[i]),
                              forward_input,
                              options_.num_decoding_tokens());
-      batched_fwd_inputs.inputs.push_back(std::move(forward_input));
+      batched_fwd_inputs.micro_inputs.push_back(std::move(forward_input));
     }
     batched_fwd_inputs.concated_sampling_params =
-        batched_fwd_inputs.inputs[0].sampling_params;
+        batched_fwd_inputs.micro_inputs[0].sampling_params;
     for (auto i = 1; i < micro_batches_num; ++i) {
       batched_fwd_inputs.concated_sampling_params.concat(
-          batched_fwd_inputs.inputs[i].sampling_params);
+          batched_fwd_inputs.micro_inputs[i].sampling_params);
     }
 
     // model output
