@@ -195,9 +195,6 @@ std::optional<ForwardOutput> SpeculativeWorkerImpl::step_empty(
     }
 
     BatchedForwardInputs new_inputs = inputs;
-    // for (auto& it : new_inputs.input_params.dp_global_token_nums) {
-    // ForwardInput new_inputs = inputs;
-    // for (auto& it : new_inputs.input_params.dp_global_token_nums) {
     for (auto i = 0; i < new_inputs.micro_inputs.size(); ++i) {
       for (auto& it :
            new_inputs.micro_inputs[i].input_params.dp_global_token_nums) {
@@ -226,8 +223,6 @@ std::optional<ForwardOutput> SpeculativeWorkerImpl::step_prefill(
 
   // prepare input for draft model
   auto& embeddings = output.sample_output.embeddings;
-  // prefill_inputs.input_params.mm_data =
-  //     MMData(MMType::EMBEDDING, {{"embedding", embeddings}});
   auto next_tokens = safe_to(output.sample_output.next_tokens, torch::kInt);
   auto start_idx = 0;
   auto token_start_idx = 0;
@@ -245,10 +240,6 @@ std::optional<ForwardOutput> SpeculativeWorkerImpl::step_prefill(
     start_idx += offset;
     token_start_idx += token_offset;
   }
-
-  // auto& token_ids = prefill_inputs.token_ids;
-  // auto mask = (token_ids == -1);
-  // token_ids.masked_scatter_(mask, next_tokens);
 
   // generate kv cache for draft model
   timer.reset();
@@ -370,10 +361,6 @@ std::optional<ForwardOutput> SpeculativeWorkerImpl::step_decode(
     if (i < options_.num_speculative_tokens() - 1) {
       draft_inputs = next_step_input;
       auto last_output = draft_outputs.back().sample_output;
-      // draft_inputs.token_ids = safe_to(last_output.next_tokens, torch::kInt);
-      // draft_inputs.input_params.mm_data =
-      //     MMData(MMType::EMBEDDING,
-      //            {{"embedding", last_output.embeddings.to(device_)}});
       auto start_idx = 0;
       auto token_start_idx = 0;
       for (auto i = 0; i < draft_inputs.micro_inputs.size(); ++i) {
@@ -397,13 +384,10 @@ std::optional<ForwardOutput> SpeculativeWorkerImpl::step_decode(
   COUNTER_ADD(speculative_execution_latency_seconds_draft,
               timer.elapsed_seconds());
 
-  // auto& token_ids = validate_inputs.token_ids;
   for (int i = 0; i < options_.num_speculative_tokens(); ++i) {
     ForwardOutput draft_output = draft_outputs[i];
-    // auto mask = (token_ids == -1 * (i + 1));
     auto next_tokens =
         safe_to(draft_output.sample_output.next_tokens, torch::kInt);
-    // token_ids.masked_scatter_(mask, next_tokens);
     int32_t start_idx = 0;
     for (auto i = 0; i < validate_inputs.micro_inputs.size(); ++i) {
       int32_t offset = draft_inputs.micro_inputs[i].input_params.num_sequences;

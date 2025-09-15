@@ -93,10 +93,6 @@ std::optional<ForwardOutput> LLMWorkerImpl::step(
   // TODO(mlu): implement mlu set device
 #endif
   Timer timer;
-  // auto& flatten_tokens = inputs.token_ids;
-  // auto& flatten_positions = inputs.positions;
-  // auto& params = inputs.input_params;
-  // auto& sampling_params = inputs.sampling_params;
   std::vector<torch::Tensor> flatten_tokens_micro_batches;
   std::vector<torch::Tensor> flatten_positions_micro_batches;
   std::vector<ModelInputParams> input_params_micro_batches;
@@ -143,11 +139,6 @@ std::optional<ForwardOutput> LLMWorkerImpl::step(
                                input_params_micro_batches[0]);
 
   torch::Tensor logits;
-  // if (sampling_params.selected_token_idxes.defined()) {
-  //   logits =
-  //       model_->logits(hidden_states, sampling_params.selected_token_idxes);
-  // }
-
   if (concated_sampling_params.selected_token_idxes.defined()) {
     logits = model_->logits(hidden_states,
                             concated_sampling_params.selected_token_idxes);
@@ -165,7 +156,6 @@ std::optional<ForwardOutput> LLMWorkerImpl::step(
   if (!enable_schedule_overlap() && !driver_ && !dp_driver_ &&
       !options_.enable_speculative_decode()) {
 #if defined(USE_NPU)
-    // torch::npu::synchronize();
     aclrtSynchronizeStream(
         c10_npu::getCurrentNPUStream(device_.index()).stream());
 #elif defined(USE_MLU)

@@ -274,10 +274,6 @@ folly::SemiFuture<std::optional<RawForwardOutput>> RemoteWorker::step_async(
   auto future = promise.getSemiFuture();
   threadpool_.schedule(
       [this, inputs = inputs, promise = std::move(promise)]() mutable {
-        // // 1. convert to proto::ForwardInput
-        // proto::ForwardInput pb_forward_input;
-        // forward_input_to_proto(inputs, &pb_forward_input);
-
         // 1. convert to proto::BatchedForwardInputs
         proto::BatchedForwardInputs pb_batched_fwd_inputs;
         std::vector<proto::ForwardInput> batched_fwd_inputs_vec;
@@ -287,7 +283,7 @@ folly::SemiFuture<std::optional<RawForwardOutput>> RemoteWorker::step_async(
           forward_input_to_proto(inputs[i], &pb_fwd_input);
           batched_fwd_inputs_vec.push_back(std::move(pb_fwd_input));
         }
-        ADD_VECTOR_TO_PROTO(pb_batched_fwd_inputs.mutable_inputs(),
+        ADD_VECTOR_TO_PROTO(pb_batched_fwd_inputs.mutable_micro_inputs(),
                             batched_fwd_inputs_vec);
 
         // 2. call ExecuteModel with callback

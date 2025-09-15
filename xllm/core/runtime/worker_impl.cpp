@@ -475,8 +475,6 @@ folly::SemiFuture<std::optional<ForwardOutput>> WorkerImpl::step_async(
   batched_inputs_on_device.micro_inputs.reserve(inputs.micro_inputs.size());
 
   prepare_work_before_execute(inputs, batched_inputs_on_device);
-  // ForwardInput forward_inputs_on_device;
-  // prepare_work_before_execute(inputs, forward_inputs_on_device);
 
   folly::Promise<std::optional<ForwardOutput>> promise;
   auto future = promise.getSemiFuture();
@@ -489,8 +487,6 @@ folly::SemiFuture<std::optional<ForwardOutput>> WorkerImpl::step_async(
       copy_futures.push_back(
           std::move(copy_out_blocks_async(input.input_params)));
     }
-    // auto copy_future =
-    // copy_out_blocks_async(inputs.micro_inputs[i].input_params);
     if (!enable_schedule_overlap()) {
       const auto output = this->step(inputs);
       std::for_each(copy_futures.begin(),
@@ -498,7 +494,6 @@ folly::SemiFuture<std::optional<ForwardOutput>> WorkerImpl::step_async(
                     [](folly::SemiFuture<bool>& copy_future) {
                       std::move(copy_future).get();
                     });
-      // std::move(copy_future).get();
       promise.setValue(output);
     } else {
       for (auto i = 0; i < inputs.micro_inputs.size(); ++i) {

@@ -187,7 +187,7 @@ message ForwardInput {
 }
 
  message BatchedForwardInputs {
-   repeated ForwardInput inputs = 1;
+   repeated ForwardInput micro_inputs = 1;
  }
 
 message Embeddings {

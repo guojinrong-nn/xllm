@@ -338,20 +338,13 @@ void WorkerService::ExecuteModel(
     // TODO(mlu): implement mlu execute model
 #endif
     Timer timer;
-    // int32_t num_sequences = pb_forward_input->num_sequences();
 
-    // // TODO: FIXME, cost to much cpu time.
-    // // Convert pb data to ForwardInput
-    // ForwardInput forward_inputs;
-    // proto_to_forward_input(
-    //     pb_forward_input, forward_inputs, options_.num_decoding_tokens());
-
-    auto micro_batches_num = pb_batched_fwd_inputs->inputs().size();
+    auto micro_batches_num = pb_batched_fwd_inputs->micro_inputs().size();
     BatchedForwardInputs batched_fwd_inputs;
     batched_fwd_inputs.micro_inputs.reserve(micro_batches_num);
     for (auto i = 0; i < micro_batches_num; ++i) {
       ForwardInput forward_input;
-      proto_to_forward_input(&(pb_batched_fwd_inputs->inputs()[i]),
+      proto_to_forward_input(&(pb_batched_fwd_inputs->micro_inputs()[i]),
                              forward_input,
                              options_.num_decoding_tokens());
       batched_fwd_inputs.micro_inputs.push_back(std::move(forward_input));
@@ -423,11 +416,9 @@ void WorkerService::ExecuteModel(
         // construct fake output tensor
         auto options =
             torch::TensorOptions().dtype(torch::kInt32).device(torch::kCPU);
-        // int32_t prefill_seq_len =
-        //     static_cast<int32_t>(pb_forward_input->prefill_seq_len());
         auto total_prefill_seq_len = 0;
         auto total_num_sequences = 0;
-        for (auto input : pb_batched_fwd_inputs->inputs()) {
+        for (auto input : pb_batched_fwd_inputs->micro_inputs()) {
           total_num_sequences += input.num_sequences();
           total_prefill_seq_len += input.prefill_seq_len();
         }
