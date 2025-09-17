@@ -101,6 +101,7 @@ WorkerClient::estimate_kv_cache_capacity_async() {
 
 folly::SemiFuture<std::optional<ForwardOutput>> WorkerClient::step_async(
     const ForwardInput& inputs) {
+  // TODO to adapt multi stream parallel later
   BatchedForwardInputs batched_fwd_inputs;
   batched_fwd_inputs.micro_inputs = {std::move(inputs)};
   return worker_->step_async(batched_fwd_inputs);

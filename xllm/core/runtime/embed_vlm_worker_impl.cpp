@@ -84,7 +84,7 @@ std::optional<ForwardOutput> EmbedVLMWorkerImpl::step(
 
   Timer timer;
 
-  // TODO guojinrong, to adapt multi stream parallel later
+  // TODO to adapt multi stream parallel later, just use [0] temporarily
   // all tensors should be on the same device as model
   auto flatten_tokens = inputs.micro_inputs[0].token_ids.to(device_);
   auto flatten_positions = inputs.micro_inputs[0].positions.to(device_);

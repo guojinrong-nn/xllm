@@ -102,6 +102,7 @@ ForwardInput Worker::prepare_inputs(Batch& batch) {
 }
 
 std::optional<ForwardOutput> Worker::step(const ForwardInput& inputs) {
+  // TODO to adapt multi stream parallel later
   BatchedForwardInputs batched_inputs;
   batched_inputs.micro_inputs = {std::move(inputs)};
   return impl_->step(batched_inputs);

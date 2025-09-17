@@ -365,7 +365,6 @@ void WorkerImpl::prepare_work_before_execute(
     BatchedForwardInputs& processed_inputs) {
 #if defined(USE_NPU)
   c10::StreamGuard streamGuard(npu_stream_helper_->H2D_memcpy_stream.unwrap());
-  // processed_inputs = inputs.to(device_, dtype_);
 
   for (auto i = 0; i < inputs.micro_inputs.size(); ++i) {
     ForwardInput fwd_inputs_on_device;
@@ -483,7 +482,7 @@ folly::SemiFuture<std::optional<ForwardOutput>> WorkerImpl::step_async(
                         promise = std::move(promise)]() mutable {
     // run the model on the given input in working thread
     std::vector<folly::SemiFuture<bool>> copy_futures;
-    for (auto input : inputs.micro_inputs) {
+    for (auto& input : inputs.micro_inputs) {
       copy_futures.push_back(
           std::move(copy_out_blocks_async(input.input_params)));
     }
@@ -526,7 +525,6 @@ folly::SemiFuture<std::optional<ForwardOutput>> WorkerImpl::step_async(
           last_step_output_valid_ = false;
         }
       }
-      // std::move(copy_future).get();
       std::for_each(copy_futures.begin(),
                     copy_futures.end(),
                     [](folly::SemiFuture<bool>& copy_future) {

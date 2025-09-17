@@ -331,7 +331,6 @@ void WorkerService::ExecuteModel(
                         pb_forward_output,
                         done]() mutable {
     brpc::ClosureGuard done_guard(done);
-    // convert proto::ForwardInput to ForwardInput
 #if defined(USE_NPU)
     c10_npu::SetDevice(device_.index());
 #elif defined(USE_MLU)
@@ -339,6 +338,7 @@ void WorkerService::ExecuteModel(
 #endif
     Timer timer;
 
+    // convert proto::BatchedForwardInputs to BatchedForwardInputs
     auto micro_batches_num = pb_batched_fwd_inputs->micro_inputs().size();
     BatchedForwardInputs batched_fwd_inputs;
     batched_fwd_inputs.micro_inputs.reserve(micro_batches_num);
@@ -349,6 +349,8 @@ void WorkerService::ExecuteModel(
                              options_.num_decoding_tokens());
       batched_fwd_inputs.micro_inputs.push_back(std::move(forward_input));
     }
+
+    // concat sampling parameters here for executing sample together
     batched_fwd_inputs.concated_sampling_params =
         batched_fwd_inputs.micro_inputs[0].sampling_params;
     for (auto i = 1; i < micro_batches_num; ++i) {
@@ -418,9 +420,9 @@ void WorkerService::ExecuteModel(
             torch::TensorOptions().dtype(torch::kInt32).device(torch::kCPU);
         auto total_prefill_seq_len = 0;
         auto total_num_sequences = 0;
-        for (auto input : pb_batched_fwd_inputs->micro_inputs()) {
-          total_num_sequences += input.num_sequences();
-          total_prefill_seq_len += input.prefill_seq_len();
+        for (auto& input : batched_fwd_inputs.micro_inputs) {
+          total_num_sequences += input.num_sequences;
+          total_prefill_seq_len += input.prefill_seq_len;
         }
         next_tokens = torch::arange(
             -1,

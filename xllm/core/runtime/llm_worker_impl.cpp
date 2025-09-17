@@ -131,6 +131,7 @@ std::optional<ForwardOutput> LLMWorkerImpl::step(
     }
   }
 
+  // temporarily use [0], will be adapted in next pr
   // call model executor forward to get hidden states
   auto hidden_states =
       model_executor_->forward(flatten_tokens_micro_batches[0],
