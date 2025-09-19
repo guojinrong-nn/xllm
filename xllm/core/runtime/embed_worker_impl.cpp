@@ -60,20 +60,23 @@ bool EmbedWorkerImpl::init_model(ModelContext& context) {
   return true;
 }
 
-std::optional<ForwardOutput> EmbedWorkerImpl::step(const ForwardInput& inputs) {
+std::optional<ForwardOutput> EmbedWorkerImpl::step(
+    const BatchedForwardInputs& inputs) {
   torch::DeviceGuard device_guard(device_);
 
   Timer timer;
 
+  // TODO guojinrong, to adapt multi stream parallel later
   // all tensors should be on the same device as model
-  auto flatten_tokens = inputs.token_ids.to(device_);
-  auto flatten_positions = inputs.positions.to(device_);
-  auto params = inputs.input_params.to(device_);
-  auto sampling_params = inputs.sampling_params.to(device_, dtype_);
+  auto flatten_tokens = inputs.micro_inputs[0].token_ids.to(device_);
+  auto flatten_positions = inputs.micro_inputs[0].positions.to(device_);
+  auto params = inputs.micro_inputs[0].input_params.to(device_);
+  auto sampling_params =
+      inputs.micro_inputs[0].sampling_params.to(device_, dtype_);
 
   // call model executor forward to get hidden states
   auto hidden_states = model_executor_->forward(
-      flatten_tokens, flatten_positions, kv_caches_, params);
+      {flatten_tokens}, {flatten_positions}, kv_caches_, {params});
 
   COUNTER_ADD(execution_latency_seconds_model, timer.elapsed_seconds());
 
@@ -85,7 +88,7 @@ std::optional<ForwardOutput> EmbedWorkerImpl::step(const ForwardInput& inputs) {
   ForwardOutput output;
   SampleOutput sample_output;
   if (sampling_params.selected_token_idxes.defined() &&
-      inputs.sampling_params.is_embeddings) {
+      inputs.micro_inputs[0].sampling_params.is_embeddings) {
     // create embeddings
     timer.reset();
     // cast model_ from Causal model to Embedding model

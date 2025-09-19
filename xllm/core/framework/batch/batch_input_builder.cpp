@@ -142,6 +142,7 @@ void BatchInputBuilder::process_single_sequence(int32_t seq_index) {
 
   // Track prefill sequences
   if (sequence->is_prefill_stage()) {
+    LOG(INFO) << "gjr is prefill.";
     state_.prefill_seq_len++;
   }
   state_.embedding_ids.push_back(sequence->get_embedding_id());

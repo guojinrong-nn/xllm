@@ -191,6 +191,7 @@ void proto_to_forward_input(const proto::ForwardInput* pb_forward_input,
   input_params.q_seq_lens = torch::tensor(q_seq_lens, tensor_options);
   input_params.kv_seq_lens_vec = std::move(seq_lens);
   input_params.q_seq_lens_vec = std::move(q_seq_lens);
+  input_params.prefill_seq_len = pb_forward_input->prefill_seq_len();
 
   input_params.new_cache_slots =
       torch::tensor(new_token_slot_ids, tensor_options);

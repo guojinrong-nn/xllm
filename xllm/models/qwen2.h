@@ -51,11 +51,14 @@ class QWen2ModelImpl : public QWenModelImplBase<QWen2DecoderLayer> {
 
     blocks_ = register_module("layers", torch::nn::ModuleList());
     layers_.reserve(model_args.n_layers());
-
-    embed_tokens_ = register_module("embed_tokens", AtbWordEmbedding(context));
     norm_ = register_module("norm", RmsNorm(context));
 
-    atb_pos_emb_ = AtbRotaryEmbedding(context);
+    // atb_pos_emb_ = AtbRotaryEmbedding(context);
+    auto const micro_batch_num = 2;
+    for (auto i = 0; i < micro_batch_num; i++) {
+      embed_tokens_.push_back(AtbWordEmbedding(context));
+      pos_embeds_.push_back(AtbRotaryEmbedding(context));
+    }
     cos_sin_ = get_qwen2_rotary_embedding(
         model_args.hidden_size() / model_args.n_heads(),
         model_args.max_position_embeddings(),

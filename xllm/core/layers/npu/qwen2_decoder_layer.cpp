@@ -398,27 +398,30 @@ int64_t Qwen2DecoderImpl::init_node(atb_speed::Model::Node& node,
   return atb::NO_ERROR;
 }
 
-torch::Tensor Qwen2DecoderImpl::forward(torch::Tensor& x,
-                                        torch::Tensor& cos_pos,
-                                        torch::Tensor& sin_pos,
-                                        torch::Tensor& attn_mask,
-                                        KVCache& kv_cache,
-                                        ModelInputParams& input_params,
-                                        aclrtEvent* event,
-                                        std::atomic<bool>* event_flag,
-                                        int node_id) {
+torch::Tensor Qwen2DecoderImpl::forward(
+    std::vector<torch::Tensor>& x,
+    std::vector<torch::Tensor>& cos_pos,
+    std::vector<torch::Tensor>& sin_pos,
+    std::vector<torch::Tensor>& attn_mask,
+    KVCache& kv_cache,
+    std::vector<ModelInputParams>& input_params,
+    atb::Context* context,
+    AtbWorkspace& workspace,
+    std::vector<aclrtEvent*> event,
+    std::vector<std::atomic<bool>*> event_flag,
+    int node_id) {
   // auto tensor = torch::tensor({1}).to(x.device());
   atb::Status st;
-  if (input_params.prefill_indices.second !=
-      input_params.q_seq_lens.size(0) - 1) {
+  if (input_params[0].prefill_indices.second !=
+      input_params[0].q_seq_lens.size(0) - 1) {
     // mstxRangeId id = mstxRangeStartA("prefill build variant", nullptr);
     build_node_variant_pack(prefill_node_,
-                            x,
-                            cos_pos,
-                            sin_pos,
-                            attn_mask,
+                            x[0],
+                            cos_pos[0],
+                            sin_pos[0],
+                            attn_mask[0],
                             kv_cache,
-                            input_params,
+                            input_params[0],
                             true);
     // mstxRangeEnd(id);
     st = execute_node(prefill_node_, node_id, event, event_flag);
@@ -426,12 +429,12 @@ torch::Tensor Qwen2DecoderImpl::forward(torch::Tensor& x,
                            << "excute prefill layer fail, error code: " << st;
   } else {
     build_node_variant_pack(decode_node_,
-                            x,
-                            cos_pos,
-                            sin_pos,
+                            x[0],
+                            cos_pos[0],
+                            sin_pos[0],
                             decode_attn_mask_,
                             kv_cache,
-                            input_params,
+                            input_params[0],
                             false);
     st = execute_node(decode_node_, node_id + 1000, event, event_flag);
     LOG_IF(FATAL, st != 0) << model_name_

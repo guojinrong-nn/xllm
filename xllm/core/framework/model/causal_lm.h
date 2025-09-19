@@ -42,10 +42,11 @@ class CausalLM : public torch::nn::Module {
   // tokens: [num_tokens]
   // positions: [num_tokens]
   // returns: [num_tokens, hidden_size]
-  virtual torch::Tensor forward(const torch::Tensor& tokens,
-                                const torch::Tensor& positions,
-                                std::vector<KVCache>& kv_caches,
-                                const ModelInputParams& parameters) = 0;
+  virtual torch::Tensor forward(
+      const std::vector<torch::Tensor>& tokens,
+      const std::vector<torch::Tensor>& positions,
+      std::vector<KVCache>& kv_caches,
+      const std::vector<ModelInputParams>& parameters) = 0;
 
   // hidden_states: [num_tokens, hidden_size]
   // seleted_idxes: [num_tokens]
@@ -67,8 +68,9 @@ class CausalLM : public torch::nn::Module {
 #if defined(USE_NPU)
   virtual hf::LlmHead get_lm_head() = 0;
   virtual void set_lm_head(hf::LlmHead& head) = 0;
-  virtual hf::AtbWordEmbedding get_word_embedding() = 0;
-  virtual void set_word_embedding(hf::AtbWordEmbedding& embedding) = 0;
+  virtual std::vector<hf::AtbWordEmbedding> get_word_embedding() = 0;
+  virtual void set_word_embedding(
+      std::vector<hf::AtbWordEmbedding>& embedding) = 0;
 #endif
 };
 
@@ -78,10 +80,11 @@ class CausalLMImpl : public CausalLM {
   CausalLMImpl(Model model, const torch::TensorOptions& options)
       : model_(std::move(model)), options_(options) {}
 
-  torch::Tensor forward(const torch::Tensor& tokens,
-                        const torch::Tensor& positions,
-                        std::vector<KVCache>& kv_caches,
-                        const ModelInputParams& parameters) override {
+  torch::Tensor forward(
+      const std::vector<torch::Tensor>& tokens,
+      const std::vector<torch::Tensor>& positions,
+      std::vector<KVCache>& kv_caches,
+      const std::vector<ModelInputParams>& parameters) override {
     return model_->forward(tokens, positions, kv_caches, parameters);
   }
 
@@ -108,11 +111,12 @@ class CausalLMImpl : public CausalLM {
 
   void set_lm_head(hf::LlmHead& head) override { model_->set_lm_head(head); };
 
-  hf::AtbWordEmbedding get_word_embedding() override {
+  std::vector<hf::AtbWordEmbedding> get_word_embedding() override {
     return model_->get_word_embedding();
   };
 
-  void set_word_embedding(hf::AtbWordEmbedding& embedding) override {
+  void set_word_embedding(
+      std::vector<hf::AtbWordEmbedding>& embedding) override {
     model_->set_word_embedding(embedding);
   };
 #endif
