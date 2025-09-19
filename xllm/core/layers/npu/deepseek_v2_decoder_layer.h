@@ -131,8 +131,6 @@ class DeepseekV2DecoderImpl : public torch::nn::Module, public ATBBase {
                         std::vector<torch::Tensor>& attn_mask,
                         KVCache& kv_cache,
                         const std::vector<ModelInputParams>& input_params,
-                        atb::Context* context,
-                        AtbWorkspace& workspace,
                         std::vector<aclrtEvent*> event = {nullptr, nullptr},
                         std::vector<std::atomic<bool>*> event_flag = {nullptr,
                                                                       nullptr},

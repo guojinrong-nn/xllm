@@ -285,7 +285,6 @@ folly::SemiFuture<std::optional<RawForwardOutput>> RemoteWorker::step_async(
         }
         ADD_VECTOR_TO_PROTO(pb_batched_fwd_inputs.mutable_micro_inputs(),
                             batched_fwd_inputs_vec);
-        LOG(INFO) << "gjr remote worker execute model.";
 
         // 2. call ExecuteModel with callback
         auto done = new ExecuteModelClosure();

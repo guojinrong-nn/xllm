@@ -405,8 +405,6 @@ torch::Tensor Qwen2DecoderImpl::forward(
     std::vector<torch::Tensor>& attn_mask,
     KVCache& kv_cache,
     std::vector<ModelInputParams>& input_params,
-    atb::Context* context,
-    AtbWorkspace& workspace,
     std::vector<aclrtEvent*> event,
     std::vector<std::atomic<bool>*> event_flag,
     int node_id) {

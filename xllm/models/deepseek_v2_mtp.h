@@ -141,8 +141,7 @@ class DeepseekV2MtpModelImpl : public torch::nn::Module {
         }
       }
 
-      hs.push_back(
-          std::move(embed_tokens_[i](tokens[i], 0)));
+      hs.push_back(std::move(embed_tokens_[i](tokens[i], 0)));
       torch::Tensor enorm = enorm_(hs[i], 0);
       const auto& res = input_params[i].mm_data.get<torch::Tensor>("embedding");
       if (res) {
@@ -157,9 +156,8 @@ class DeepseekV2MtpModelImpl : public torch::nn::Module {
       hs[i] = torch::cat({enorm, hnorm}, /*dim=*/-1);
       hs[i] = eh_projs_[i](hs[i], 0);
 
-      auto cos_sin = atb_pos_embs_[i](pos_embs_[i]->get_cos_sin_cache(),
-                                      positions[i],
-                                      0);
+      auto cos_sin =
+          atb_pos_embs_[i](pos_embs_[i]->get_cos_sin_cache(), positions[i], 0);
       auto cos_sin_chunks = cos_sin.chunk(/*chunks=*/2, /*dim=*/-1);
       auto cos_pos = cos_sin_chunks[0].contiguous();
       auto sin_pos = cos_sin_chunks[1].contiguous();
@@ -267,15 +265,11 @@ class DeepseekV2MtpModelImpl : public torch::nn::Module {
   nlohmann::json mapping_data_;
   int32_t num_experts_per_tok_;
   at::Device device_;
-  // AtbWordEmbedding embed_tokens_{nullptr};
-  // std::shared_ptr<RotaryEmbedding> pos_emb_{nullptr};
-  // AtbRotaryEmbedding atb_pos_emb_{nullptr};
   std::vector<AtbWordEmbedding> embed_tokens_;
   std::vector<std::shared_ptr<RotaryEmbedding>> pos_embs_;
   std::vector<AtbRotaryEmbedding> atb_pos_embs_;
   std::vector<AtbColumnParallelLinear> eh_projs_;
   AttentionMaskImpl attn_mask_;
-  // AtbColumnParallelLinear eh_proj_{nullptr};
   RmsNorm enorm_{nullptr};
   RmsNorm hnorm_{nullptr};
   RmsNorm final_norm_{nullptr};
@@ -297,8 +291,7 @@ class DeepseekV2MtpForCausalLMImpl : public torch::nn::Module {
                         const std::vector<torch::Tensor>& positions,
                         std::vector<KVCache>& kv_caches,
                         const std::vector<ModelInputParams>& input_params) {
-    return model_(
-        tokens, positions, kv_caches, input_params);
+    return model_(tokens, positions, kv_caches, input_params);
   }
 
   // hidden_states: [num_tokens, hidden_size]

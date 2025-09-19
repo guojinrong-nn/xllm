@@ -1502,8 +1502,6 @@ torch::Tensor DeepseekV2DecoderImpl::forward(
     std::vector<torch::Tensor>& attn_mask,
     KVCache& kv_cache,
     const std::vector<ModelInputParams>& input_params,
-    atb::Context* context,
-    AtbWorkspace& workspace,
     std::vector<aclrtEvent*> event,
     std::vector<std::atomic<bool>*> event_flag,
     int node_id) {
@@ -1839,17 +1837,6 @@ void DeepseekV2DecoderImpl::build_node_variant_pack(
   if (is_prefill && FLAGS_enable_multi_stream_parallel) {
     node.variantPack.outTensors.at(1) = internal_tensor_auxiliary;
   }
-
-  // if (FLAGS_enable_eplb && layer_id_ >= decode_param_.firstKDenseReplace) {
-  //   node.variantPack.inTensors.at(WEIGHT_COUNT_PER_LAYER + 30) =
-  //       atb_speed::Utils::AtTensor2Tensor(expert_routing_map_);
-  //   if (!is_prefill) {
-  //     node.variantPack.outTensors.at(1) = atb_speed::Utils::AtTensor2Tensor(
-  //         input_params
-  //             .expert_load_data[layer_id_ -
-  //             decode_param_.firstKDenseReplace]);
-  //   }
-  // }
 }
 
 DeepseekV2Decoder::DeepseekV2Decoder(const ModelContext& context,

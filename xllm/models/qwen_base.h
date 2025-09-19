@@ -195,9 +195,7 @@ class QWenModelImplBase : public torch::nn::Module {
         h = embed_tokens_[i](tokens[i], 0);
       }
       hs.push_back(std::move(h));
-      // auto h = embed_tokens_(tokens);
-      auto target_cos_sin =
-          pos_embeds_[i](cos_sin_, positions[i], 0);
+      auto target_cos_sin = pos_embeds_[i](cos_sin_, positions[i], 0);
       auto target_cos_sin_chunks =
           target_cos_sin.chunk(/*chunks=*/2, /*dim=*/-1);
       auto cos_pos = target_cos_sin_chunks[0].contiguous();
@@ -224,8 +222,6 @@ class QWenModelImplBase : public torch::nn::Module {
             {positions[i].sizes().front(), -1, sin_pos.sizes().back()}));
       }
 
-      // ModelInputParams& input_params_new =
-      //     const_cast<ModelInputParams&>(input_params);
       torch::Tensor attn_mask;
       if (model_type_ == "qwen2") {
         torch::Tensor max_of_seq = torch::max(input_params[i].kv_seq_lens);
@@ -348,13 +344,7 @@ class QWenModelImplBase : public torch::nn::Module {
   int max_seq_len_ = 0;
   int device_id = 0;
   AttentionMaskImpl attn_mask_;
-  // AtbRotaryEmbedding atb_pos_emb_{nullptr};
-
   std::vector<int64_t> mrope_section_;
-  // test
-  // ParallelEmbedding embed_tokens_{nullptr};
-  // AtbWordEmbedding embed_tokens_{nullptr};
-
   std::vector<AtbWordEmbedding> embed_tokens_;
   std::vector<AtbRotaryEmbedding> pos_embeds_;
   RmsNorm norm_{nullptr};

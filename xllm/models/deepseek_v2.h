@@ -108,8 +108,6 @@ class DeepseekV2ModelImpl : public torch::nn::Module {
     device_ = options.device();
     dtype_ = options.dtype().toScalarType();
     num_speculative_tokens_ = model_args.num_speculative_tokens();
-    // embed_tokens_ = register_module("embed_tokens",
-    // AtbWordEmbedding(context));
 
     // rotary positional embedding
     auto inv_freq = rotary::apply_deepseek_yarn_rope_scaling(
@@ -121,13 +119,6 @@ class DeepseekV2ModelImpl : public torch::nn::Module {
         model_args.rope_theta(),
         model_args.rope_scaling_original_max_position_embeddings());
     float sm_scale = 1.0f;
-    // pos_emb_ = create_rotary_embedding(model_args,
-    //                                    model_args.rotary_dim(),
-    //                                    inv_freq,
-    //                                    /*interleaved=*/false,
-    //                                    sm_scale,
-    //                                    options);
-    // atb_pos_emb_ = AtbRotaryEmbedding(context);
     auto const micro_batch_num = 2;
     for (auto i = 0; i < micro_batch_num; i++) {
       embed_tokens_.push_back(AtbWordEmbedding(context));
@@ -187,11 +178,9 @@ class DeepseekV2ModelImpl : public torch::nn::Module {
         }
       }
 
-      hs.push_back(
-          std::move(embed_tokens_[i](tokens[i], i)));
-      auto cos_sin = atb_pos_embs_[i](pos_embs_[i]->get_cos_sin_cache(),
-                                      positions[i],
-                                      0);
+      hs.push_back(std::move(embed_tokens_[i](tokens[i], i)));
+      auto cos_sin =
+          atb_pos_embs_[i](pos_embs_[i]->get_cos_sin_cache(), positions[i], 0);
       auto cos_sin_chunks = cos_sin.chunk(/*chunks=*/2, /*dim=*/-1);
       auto cos_pos = cos_sin_chunks[0].contiguous();
       auto sin_pos = cos_sin_chunks[1].contiguous();
@@ -283,7 +272,6 @@ class DeepseekV2ModelImpl : public torch::nn::Module {
   std::vector<AtbWordEmbedding> get_word_embedding() { return embed_tokens_; }
 
   void set_word_embedding(std::vector<AtbWordEmbedding>& word_embedding) {
-    // embed_tokens_ = word_embedding;
     auto const micro_batch_num = 2;
     for (auto i = 0; i < micro_batch_num; i++) {
       embed_tokens_[i] = word_embedding[i];
@@ -303,9 +291,6 @@ class DeepseekV2ModelImpl : public torch::nn::Module {
   int32_t num_speculative_tokens_ = 0;
   at::Device device_;
   torch::Dtype dtype_;
-  // AtbWordEmbedding embed_tokens_{nullptr};
-  // std::shared_ptr<RotaryEmbedding> pos_emb_{nullptr};
-  // AtbRotaryEmbedding atb_pos_emb_{nullptr};
   std::vector<AtbWordEmbedding> embed_tokens_;
   std::vector<std::shared_ptr<RotaryEmbedding>> pos_embs_;
   std::vector<AtbRotaryEmbedding> atb_pos_embs_;
@@ -329,8 +314,7 @@ class DeepseekV2ForCausalLMImpl : public torch::nn::Module {
                         const std::vector<torch::Tensor>& positions,
                         std::vector<KVCache>& kv_caches,
                         const std::vector<ModelInputParams>& input_params) {
-    return model_(
-        tokens, positions, kv_caches, input_params);
+    return model_(tokens, positions, kv_caches, input_params);
   }
 
   // hidden_states: [num_tokens, hidden_size]
