@@ -41,10 +41,11 @@ class CausalVLMImpl : public CausalVLM {
   CausalVLMImpl(Model model, const torch::TensorOptions& options)
       : model_(std::move(model)), options_(options) {}
 
-  torch::Tensor forward(const torch::Tensor& tokens,
-                        const torch::Tensor& positions,
-                        std::vector<KVCache>& kv_caches,
-                        const ModelInputParams& parameters) override {
+  torch::Tensor forward(
+      const std::vector<torch::Tensor>& tokens,
+      const std::vector<torch::Tensor>& positions,
+      std::vector<KVCache>& kv_caches,
+      const std::vector<ModelInputParams>& parameters) override {
     return model_->forward(tokens, positions, kv_caches, parameters);
   }
 
@@ -69,11 +70,12 @@ class CausalVLMImpl : public CausalVLM {
 
   void set_lm_head(hf::LlmHead& head) override { model_->set_lm_head(head); };
 
-  hf::AtbWordEmbedding get_word_embedding() override {
+  std::vector<hf::AtbWordEmbedding> get_word_embedding() override {
     return model_->get_word_embedding();
   };
 
-  void set_word_embedding(hf::AtbWordEmbedding& embedding) override {
+  void set_word_embedding(
+      std::vector<hf::AtbWordEmbedding>& embedding) override {
     model_->set_word_embedding(embedding);
   };
 #endif

@@ -199,8 +199,8 @@ void ATBBase::run_task(std::string taskName, std::function<int()> task) const {
 
 atb::Status ATBBase::execute_node(atb_speed::Model::Node& node,
                                   int nodeId,
-                                  aclrtEvent* event,
-                                  std::atomic<bool>* event_flag) {
+                                  std::vector<aclrtEvent*> event,
+                                  std::vector<std::atomic<bool>*> event_flag) {
   if (!g_executeOk) {
     std::stringstream ss;
     ss << "execute fail, enable log: export ASDOPS_LOG_LEVEL=ERROR, export "
@@ -231,19 +231,21 @@ atb::Status ATBBase::execute_node(atb_speed::Model::Node& node,
 
 atb::Status ATBBase::execute_plan(const atb_speed::Model::Node& node,
                                   std::string opName_,
-                                  aclrtEvent* event,
-                                  std::atomic<bool>* event_flag) {
+                                  std::vector<aclrtEvent*> event,
+                                  std::vector<std::atomic<bool>*> event_flag) {
   atb::Status st = node.operation->Execute(
       node.variantPack, (uint8_t*)node.workspace, node.workspaceSize, context_);
   LOG_IF(ERROR, st != 0) << name_ << " execute plan fail, error code: " << st;
-  if (st == 0 && event != nullptr) {
-    aclrtStream stream = context_->GetExecuteStream();
-    auto ret = aclrtRecordEvent(*event, stream);
-    if (ret != ACL_SUCCESS) {
-      LOG(ERROR) << "Record event failed.";
-      return st;
+  for (auto i = 0; i < event.size(); ++i) {
+    if (st == 0 && event[i] != nullptr) {
+      aclrtStream stream = context_->GetExecuteStream();
+      auto ret = aclrtRecordEvent(*(event[i]), stream);
+      if (ret != ACL_SUCCESS) {
+        LOG(ERROR) << "Record event failed.";
+        return st;
+      }
+      event_flag[i]->store(true, std::memory_order_release);
     }
-    event_flag->store(true, std::memory_order_release);
   }
   return st;
 }

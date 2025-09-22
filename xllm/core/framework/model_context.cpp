@@ -38,9 +38,19 @@ ModelContext::ModelContext(const ParallelArgs& input_parallel_args,
       tensor_options_(tensor_options) {
 #if defined(USE_NPU)
   int32_t device_id = tensor_options.device().index();
-  void* stream = c10_npu::getCurrentNPUStream(device_id).stream();
+  aclError ret = aclrtSetDevice(device_id);
   atb::CreateContext(&context_);
-  context_->SetExecuteStream(stream);
+  std::vector<aclrtStream> streams;
+  streams.push_back(c10_npu::getCurrentNPUStream(device_id).stream());
+  for (int i = 0; i < 1; ++i) {
+    aclrtStream subStream;
+    aclError ret = aclrtCreateStream(&subStream);
+    if (ret != ACL_ERROR_NONE) {
+      ATB_SPEED_LOG_ERROR("Failed to create aclrtStream: " << ret);
+    }
+    streams.push_back(subStream);
+  }
+  context_->SetExecuteStreams(streams);
   context_->SetAsyncTilingCopyStatus(true);
 #endif
 }

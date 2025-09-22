@@ -51,11 +51,11 @@ class LLMWorkerImpl : public WorkerImpl {
 
   void set_lm_head(hf::LlmHead& head) { model_->set_lm_head(head); };
 
-  hf::AtbWordEmbedding get_word_embedding() {
+  std::vector<hf::AtbWordEmbedding> get_word_embedding() {
     return model_->get_word_embedding();
   };
 
-  void set_word_embedding(hf::AtbWordEmbedding& embedding) {
+  void set_word_embedding(std::vector<hf::AtbWordEmbedding>& embedding) {
     model_->set_word_embedding(embedding);
   };
 #elif defined(USE_MLU)

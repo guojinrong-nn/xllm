@@ -133,13 +133,15 @@ class ATBBase {
 
   atb::Status execute_node(atb_speed::Model::Node& node,
                            int nodeId = 0,
-                           aclrtEvent* event = nullptr,
-                           std::atomic<bool>* event_flag = nullptr);
+                           std::vector<aclrtEvent*> event = {nullptr, nullptr},
+                           std::vector<std::atomic<bool>*> event_flag = {
+                               nullptr,
+                               nullptr});
 
   atb::Status execute_plan(const atb_speed::Model::Node& node,
                            std::string opName_,
-                           aclrtEvent* event,
-                           std::atomic<bool>* event_flag);
+                           std::vector<aclrtEvent*> event,
+                           std::vector<std::atomic<bool>*> event_flag);
 
   void run_task(std::string taskName, std::function<int()> task) const;
 
