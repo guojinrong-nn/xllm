@@ -1450,6 +1450,11 @@ int64_t DeepseekV2DecoderImpl::init_layer() {
 int64_t DeepseekV2DecoderImpl::init_node(
     atb_speed::Model::Node& node,
     atb_speed::deepseekV2::DecoderLayerParam& param) {
+  bool eplb_enabled = FLAGS_enable_eplb &&
+                      layer_id_ >= decode_param_.firstKDenseReplace &&
+                      !param.isPrefill;
+  bool multi_stream_parallel_enabled =
+      param.isPrefill && FLAGS_enable_multi_stream_parallel;
   atb::Operation* operation = nullptr;
   atb_speed::deepseekV2::DecoderLayer(param, &operation);
   node.operation.reset(operation);
@@ -1463,9 +1468,7 @@ int64_t DeepseekV2DecoderImpl::init_node(
   }
   node.inTensors.resize(node.operation->GetInputNum());
 
-  if ((FLAGS_enable_eplb && layer_id_ >= decode_param_.firstKDenseReplace &&
-       !param.isPrefill) ||
-      (param.isPrefill && FLAGS_enable_multi_stream_parallel)) {
+  if (eplb_enabled || multi_stream_parallel_enabled) {
     node.outTensors.resize(2);
   } else {
     node.outTensors.resize(1);
@@ -1483,9 +1486,7 @@ int64_t DeepseekV2DecoderImpl::init_node(
 
   // eplb used in decode stage, while multi stream parallel used in prefill
   // stage
-  if ((FLAGS_enable_eplb && layer_id_ >= decode_param_.firstKDenseReplace &&
-       !param.isPrefill) ||
-      (param.isPrefill && FLAGS_enable_multi_stream_parallel)) {
+  if (eplb_enabled || multi_stream_parallel_enabled) {
     node.variantPack.outTensors.reserve(2);
     node.variantPack.outTensors.resize(2);  // TODO
   } else {
@@ -1632,13 +1633,13 @@ void DeepseekV2DecoderImpl::build_node_variant_pack(
   }
 
   if (is_prefill && FLAGS_enable_multi_stream_parallel) {
-    internal_tensor_auxiliary = atb_speed::Utils::AtTensor2Tensor(x[1]);
+    internal_tensor_auxiliary_ = atb_speed::Utils::AtTensor2Tensor(x[1]);
     auto& dp_ep_padding_auxiliary = input_params[1].dp_ep_padding_data;
 
     // set micro batch 1 input part
     auto offset = 18;
     node.variantPack.inTensors.at(WEIGHT_COUNT_PER_LAYER + offset) =
-        internal_tensor_auxiliary;
+        internal_tensor_auxiliary_;
     node.variantPack.inTensors.at(WEIGHT_COUNT_PER_LAYER + 1 + offset) =
         atb_speed::Utils::AtTensor2Tensor(
             dp_ep_padding_auxiliary.expert_array());
@@ -1835,7 +1836,7 @@ void DeepseekV2DecoderImpl::build_node_variant_pack(
 
   node.variantPack.outTensors.at(0) = internal_tensor_;
   if (is_prefill && FLAGS_enable_multi_stream_parallel) {
-    node.variantPack.outTensors.at(1) = internal_tensor_auxiliary;
+    node.variantPack.outTensors.at(1) = internal_tensor_auxiliary_;
   }
 }
 

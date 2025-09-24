@@ -55,10 +55,10 @@ class DeepseekV2DecoderLayerImpl : public torch::nn::Module {
                                      DeepseekV2Decoder(context, i, sm_scale));
   }
 
-  torch::Tensor forward(std::vector<torch::Tensor> x,
-                        std::vector<torch::Tensor> cos_pos,
-                        std::vector<torch::Tensor> sin_pos,
-                        std::vector<torch::Tensor> attn_mask,
+  torch::Tensor forward(std::vector<torch::Tensor>& x,
+                        std::vector<torch::Tensor>& cos_pos,
+                        std::vector<torch::Tensor>& sin_pos,
+                        std::vector<torch::Tensor>& attn_mask,
                         KVCache& kv_cache,
                         const std::vector<ModelInputParams>& input_params,
                         std::vector<aclrtEvent*> event,

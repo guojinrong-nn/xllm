@@ -318,7 +318,7 @@ class DeepseekV2DecoderImpl : public torch::nn::Module, public ATBBase {
   atb_speed::Model::Node decode_node_;
 
   atb::Tensor internal_tensor_;
-  atb::Tensor internal_tensor_auxiliary;
+  atb::Tensor internal_tensor_auxiliary_;
 
   torch::Tensor at_cumsum_;
   torch::Tensor tensor_placeholder_;

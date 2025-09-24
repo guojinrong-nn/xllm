@@ -190,7 +190,7 @@ void Qwen3DecoderImpl::param_from_args(atb_speed::qwen::QwenLayerParam& param,
   // NOTE: Currently, single-process startup requires setting enableLcoc to
   // false, which leads to performance degradation. param.enableLcoc = false;
   // //isPrefill
-  param.enableLcoc = false;  // isPrefill;
+  param.enableLcoc = enable_multi_stream_parallel ? isPrefill : false;
   param.rmsnormQKNorm = true;
   param.isPrefill = isPrefill;
   param.isBF16 = args.dtype() == "bfloat16";
@@ -451,6 +451,8 @@ int64_t Qwen3DecoderImpl::init_attn_mask() {
 
 int64_t Qwen3DecoderImpl::init_node(atb_speed::Model::Node& node,
                                     atb_speed::qwen::QwenLayerParam& param) {
+  bool multi_stream_parallel_enabled =
+      param.isPrefill && FLAGS_enable_multi_stream_parallel;
   atb::Operation* operation = nullptr;
   atb_speed::qwen::QwenDecoderLayer decoder_layer(param);
   decoder_layer.BuildGraph(&operation);
@@ -464,8 +466,7 @@ int64_t Qwen3DecoderImpl::init_node(atb_speed::Model::Node& node,
     return -1;
   }
   node.inTensors.resize(node.operation->GetInputNum());
-  node.outTensors.resize(
-      (param.isPrefill && FLAGS_enable_multi_stream_parallel) ? 2 : 1);
+  node.outTensors.resize(multi_stream_parallel_enabled ? 2 : 1);
   size_t inTensorId = 1;
 
   for (size_t weightTensorId = 0; weightTensorId < WEIGHT_COUNT_PER_LAYER;
@@ -475,10 +476,8 @@ int64_t Qwen3DecoderImpl::init_node(atb_speed::Model::Node& node,
 
   node.variantPack.inTensors.reserve(node.inTensors.size());
   node.variantPack.inTensors.resize(node.inTensors.size());
-  node.variantPack.outTensors.reserve(
-      (param.isPrefill && FLAGS_enable_multi_stream_parallel) ? 2 : 1);
-  node.variantPack.outTensors.resize(
-      (param.isPrefill && FLAGS_enable_multi_stream_parallel) ? 2 : 1);
+  node.variantPack.outTensors.reserve(multi_stream_parallel_enabled ? 2 : 1);
+  node.variantPack.outTensors.resize(multi_stream_parallel_enabled ? 2 : 1);
 
   return atb::NO_ERROR;
 }
