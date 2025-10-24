@@ -12,6 +12,84 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
+#ifdef(USE_EDGE)
+#include "xllm.h"
+#include <cstdio>
+#include <cstring>
+#include <string>
+#include <vector>
+
+#include "core/edge/common/options.h"
+#include "core/edge/master.h"
+
+namespace xllm {
+namespace edge
+{
+  int main(int argc, char ** argv) {
+    // parse command line arguments
+    Options options;
+    {
+      int i = 1;
+      for (; i < argc; i++) {
+          if (strcmp(argv[i], "-m") == 0) {
+              if (i + 1 < argc) {
+                options.model_path = argv[++i];
+              } else {
+                  print_usage(argc, argv);
+                  return 1;
+              }
+          } else if (strcmp(argv[i], "-n") == 0) {
+              if (i + 1 < argc) {
+                  try {
+                      n_predict = std::stoi(argv[++i]);
+                  } catch (...) {
+                      print_usage(argc, argv);
+                      return 1;
+                  }
+              } else {
+                  print_usage(argc, argv);
+                  return 1;
+              }
+          } else if (strcmp(argv[i], "-ngl") == 0) {
+              if (i + 1 < argc) {
+                  try {
+                      ngl = std::stoi(argv[++i]);
+                  } catch (...) {
+                      print_usage(argc, argv);
+                      return 1;
+                  }
+              } else {
+                  print_usage(argc, argv);
+                  return 1;
+              }
+          } else {
+              // prompt starts here
+              break;
+          }
+      }
+      if (options.model_path.empty()) {
+          print_usage(argc, argv);
+          return 1;
+      }
+      if (i < argc) {
+        options.prompt = argv[i++];
+          for (; i < argc; i++) {
+            options.prompt += " ";
+            options.prompt += argv[i];
+          }
+      }
+    }
+    
+    // start mmaster
+    auto master = std::make_unique<Master>(options);
+    master->run();
+
+    return 0;
+  }
+} // namespace edge
+} // namespace xllm
+
+#else
 
 #include <folly/init/Init.h>
 #include <gflags/gflags.h>
@@ -219,3 +297,5 @@ int main(int argc, char** argv) {
 
   return run();
 }
+
+#endif
